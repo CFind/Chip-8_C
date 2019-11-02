@@ -14,6 +14,8 @@
 #define VIDEO_HEIGHT 32u
 #define FONTSET_SIZE 80u
 
+
+
 uint8_t fontset[FONTSET_SIZE] =
 {
 	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -35,7 +37,7 @@ uint8_t fontset[FONTSET_SIZE] =
 };
 
 
-int quit_emulator = 0;
+bool quit_emulator = false;
 //Chip-8 has 35 opcodes 2 bytes in length.
 //This holds the current opcode.
 uint16_t opcode;
@@ -64,7 +66,11 @@ uint16_t stack[16];
 uint16_t stack_pointer;
 //Keypad states. 16 keys 0x0 - 0xF values.
 uint8_t keys[16];
+bool drawFlag;
 
+
+
+void (*opArithmetic[8]) = {op}
 
 
 int main(int argc, char *argv[]){
@@ -79,8 +85,12 @@ int main(int argc, char *argv[]){
 
     while (!quit_emulator) {
         getEvent(&quit_emulator);
-        draw(graphics);
         updateInput(keys);
+        emulateCycle();
+        if(drawFlag){
+            draw(graphics);
+            drawFlag = false;
+        }
     }
 
     quit();
@@ -88,10 +98,64 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-
 void emulateCycle(){
     //fetch opcode
     opcode = memory[pc] << 8u | memory[pc+1];
+    switch (opcode & 0xF000u)
+    {
+    case 0x0000:
+        switch (opcode & 0x000Fu)
+        {
+        case 0x0000:
+            op_00E0_CLS();
+            break;
+        
+        case 0x000E:
+            op_00EE_RET();
+            break;
+        default:
+            error("Invalid opcode!");
+        }
+        break;
+    case 0x1000:
+        op_1nnn_JP();
+        break;
+    case 0x2000:
+        op_2nnn_CALL();
+        break;
+    case 0x3000:
+        op_3xkk_SE();
+        break;
+    case 0x4000:
+        op_4xkk_SNE();
+        break;
+    case 0x5000:
+        op_5xy0_SE();
+        break;
+    case 0x6000:
+        op_6xkk_LD();
+        break;
+    case 0x7000:
+        op_7xkk_ADD();
+        break;
+    case 0x8000:
+        switch (opcode & 0x000Fu)
+        {
+        case 0x0000:
+            op_8xy0_LD();
+            break;
+        case 0x0001:
+            op_8xy1_OR();
+        case 0x0002:
+            op_8xy2_AND();
+            break;
+        default:
+            error("Invalid opcode!");
+        }
+
+    
+
+    }
 }
 
 
@@ -349,6 +413,7 @@ void op_Dxyn_DRW(){
             *screenPix ^= 0xFFFFFFFFF;
         }
     }
+    drawFlag = 1;
 
 }
 

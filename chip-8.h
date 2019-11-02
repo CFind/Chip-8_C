@@ -8,3 +8,5 @@ void loadROM();
 void error(const char * msg);
 
 void setQuitFlag();
+
+typedef enum {false, true} bool;
