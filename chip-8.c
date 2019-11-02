@@ -70,7 +70,9 @@ bool drawFlag;
 
 
 
-void (*opArithmetic[8]) = {op}
+
+
+
 
 
 int main(int argc, char *argv[]){
@@ -101,6 +103,9 @@ int main(int argc, char *argv[]){
 void emulateCycle(){
     //fetch opcode
     opcode = memory[pc] << 8u | memory[pc+1];
+
+
+    /*
     switch (opcode & 0xF000u)
     {
     case 0x0000:
@@ -155,7 +160,7 @@ void emulateCycle(){
 
     
 
-    }
+    }*/
 }
 
 
@@ -350,7 +355,7 @@ void op_8xy7_SUBN(){
 
     v[Vx] = Vy - Vx;
 }
-
+//If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
 void op_8xyE_SHL(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
 
@@ -359,7 +364,7 @@ void op_8xyE_SHL(){
     v[Vx] *= 2;
 
 }
-
+//The values of Vx and Vy are compared, and if they are not equal, the program counter is increased by 2.
 void op_9xy0_SNE(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
@@ -367,19 +372,20 @@ void op_9xy0_SNE(){
     if(v[Vx] != v[Vy])
         pc += 2;
 }
-
+//The value of register I is set to nnn.
 void op_Annn_LD(){
     uint16_t address = opcode & 0x0FFF;
 
     I = address;
 }
-
+//The program counter is set to nnn plus the value of V0.
 void op_Bnnn_JP(){
     uint16_t address = opcode & 0x0FFF;
 
     pc += address + v[0];
 }
-
+//The interpreter generates a random number from 0 to 255, 
+//which is then ANDed with the value kk. The results are stored in Vx.
 void op_Cxkk_RND(){
     uint8_t Vx = (opcode >> 12) & 0x000Fu;
     uint8_t byte = (opcode & 0x00FF);
@@ -389,7 +395,8 @@ void op_Cxkk_RND(){
 
     v[Vx] = rNum & byte;
 }
-
+//The interpreter reads n bytes from memory, starting at the address stored in I. 
+//These bytes are then displayed as sprites on screen at coordinates (Vx, Vy).
 void op_Dxyn_DRW(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
@@ -416,26 +423,27 @@ void op_Dxyn_DRW(){
     drawFlag = 1;
 
 }
-
+//Skip next instruction if key with the value of Vx is pressed.
 void op_Ex9E_SKP(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t key = v[Vx];
     if (keys[key])
         pc += 2; 
 }
-
+//Skip next instruction if key with the value of Vx is not pressed.
 void op_ExA1_SKNP(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t key = v[Vx];
     if (!keys[key])
         pc += 2; 
 }
-
+//Set Vx = delay timer value.
+//The value of DT is placed into Vx.
 void op_Fx07_LD(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu; 
     v[Vx] = delay_timer;
 }
-
+//All execution stops until a key is pressed, then the value of that key is stored in Vx.
 void op_Fx0A_LD(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     for (int i = 0; i <= 15; i++)
@@ -445,35 +453,27 @@ void op_Fx0A_LD(){
         }
     pc -= 2;
 }
-
+//Set delay timer = Vx.
 void op_Fx15_LD(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     delay_timer = v[Vx];
 }
-
+//Set sound timer = Vx.
 void op_Fx18_LD(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     sound_timer = v[Vx];
 }
-
+//Set I = I + Vx.
 void op_Fx1E(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     I += v[Vx];
 }
-
+//Set I = location of sprite for digit Vx.
 void op_Fx29(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     I = 0x50 + (5* v[Vx]);
 }
-
-void op_Fx55(){
-    uint8_t Vx = (opcode >> 8) & 0x000Fu;
-    uint16_t address = I;
-    for (int i = 0; i <= Vx; i++){
-        memory[I+i] = v[i];
-    }  
-}
-
+//Store BCD representation of Vx in memory locations I, I+1, and I+2.
 void op_Fx33(){
     uint8_t Vx = (opcode >> 12) & 0x000Fu;
     uint8_t val = v[Vx];
@@ -484,7 +484,15 @@ void op_Fx33(){
     val/=10;
     memory[I] = val % 10;
 }
-
+//Store registers V0 through Vx in memory starting at location I.
+void op_Fx55(){
+    uint8_t Vx = (opcode >> 8) & 0x000Fu;
+    uint16_t address = I;
+    for (int i = 0; i <= Vx; i++){
+        memory[I+i] = v[i];
+    }  
+}
+//Read registers V0 through Vx from memory starting at location I.
 void op_Fx65(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint16_t address = I;
@@ -494,3 +502,31 @@ void op_Fx65(){
          v[j] = memory[i];
     }
 }
+
+void op_Table0(){
+
+}
+
+void op_TableE(){
+
+}
+
+void op_TableF(){
+
+}
+
+void op_NULL(){
+
+}
+
+void op_8(){
+    uint8_t opLSD = opcode & 0x000Fu;
+    if (opLSD > 7)
+        (opArrayArithmetic[0x000E]);
+    else
+        (opArrayArithmetic[opLSD]);
+    
+}
+void (*opArrayArithmetic[8]) = {op_8xy0_LD, op_8xy1_OR, op_8xy2_AND, op_8xy3_XOR, op_8xy4_ADD, op_8xy5_SUB, op_8xy6_SHR, op_8xy7_SUBN, op_8xyE_SHL};
+void (*opArray[]) = {op_0,op_1nnn_JP,op_2nnn_CALL,op_3xkk_SE,op_4xkk_SNE,op_5xy0_SE,op_6xkk_LD,op_7xkk_ADD,op_arithmetic,op_9xy0_SNE,op_Annn_LD,op_Bnnn_JP,
+                    op_Cxkk_RND,op_Dxyn_DRW,op_E,op}
