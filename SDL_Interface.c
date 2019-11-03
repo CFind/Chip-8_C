@@ -26,9 +26,9 @@ void initializeGraphics(){
         error(SDL_GetError());
 }
 
-void draw(void const* buffer){
+void draw(void const* buffer, int pitch){
     printf("Drawing");
-    if (SDL_UpdateTexture(texture, NULL, buffer, 2048))
+    if (SDL_UpdateTexture(texture, NULL, buffer, pitch))
         error(SDL_GetError);
     printf("Texture Update Done");
     if (SDL_RenderClear(renderer))

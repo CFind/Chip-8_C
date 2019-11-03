@@ -12,12 +12,13 @@
 #define VIDEO_WIDTH 64u
 #define VIDEO_HEIGHT 32u
 #define FONTSET_SIZE 80u
+#define FONTSET_START_ADDRESS 0x50u
 
 void (*op_Array[16])();
-void (*op0_Array[14])();
-void (*opE_Array[14])();
+void (*op0_Array[15])();
+void (*opE_Array[15])();
 void (*opF_Array[66])();
-void (*op8_Array[14])();
+void (*op8_Array[15])();
 
 //Initializes memory and pointers
 void initialize();
@@ -117,26 +118,42 @@ uint16_t stack_pointer;
 //Keypad states. 16 keys 0x0 - 0xF values.
 uint8_t keys[16];
 
+float delay = 0;
 bool drawFlag;
 
+float timers_interval = 0;
+float last_timer_update = 0;
 
 int main(int argc, char *argv[]){
+
+    float start_time = clock();
+    float last_cycle = 0;
+    float time_interval = 0;
 
     //Pointer to the rom
     if (argc <= 1)
         error("Need ROM filepath as string");
+    else if (argc >= 2)
+        delay = atof(argv[2]);
     initializeGraphics();
     initialize();
+
+
     loadROM(argv[1]);
 
     while (!quit_emulator) {
         getEvent(&quit_emulator);
         updateInput(keys);
-        emulateCycle();
-        if(drawFlag){
-            draw(graphics);
-            printf("Drawing");
-            drawFlag = false;
+        time_interval = ((clock() - last_cycle)/CLOCKS_PER_SEC)*1000;
+        timer_update();
+        if (time_interval > delay){ 
+            last_cycle = clock();
+            emulateCycle();
+            if(drawFlag){
+                draw(graphics,  VIDEO_WIDTH);
+                printf("Drawing");
+                drawFlag = false;
+            }
         }
     }
 
@@ -148,17 +165,23 @@ int main(int argc, char *argv[]){
 void emulateCycle(){
     //fetch opcode
     opcode = memory[pc] << 8u | memory[pc+1];
-    float start_time = clock();
-    while (((clock() - start_time)/CLOCKS_PER_SEC)*1000 <= 16);
-    if (delay_timer > 0)
-        delay_timer--;
-    if (sound_timer > 0)
-        sound_timer--;
     
     pc += 2;
     op_Array[(opcode >> 12) & 0x000F]();
     printf("Current Op: %X\n", opcode);
 }
+
+void timer_update(){
+    timers_interval = ((clock() - last_timer_update)/CLOCKS_PER_SEC)*1000;
+    if (timers_interval >= 16.666667){
+        last_timer_update = clock();
+        if (delay_timer > 0)
+            delay_timer--;
+        if (sound_timer > 0)
+            sound_timer--;
+    }
+}
+
 
 void setQuitFlag(){
     quit_emulator = 1;
@@ -179,7 +202,7 @@ void quit(){
 
 void loadROM(const char * filePath){
     FILE * pFile = fopen(filePath,"rb");
-    uint8_t * buffer;
+    char * buffer;
     long size;
     long result;
 
@@ -191,7 +214,7 @@ void loadROM(const char * filePath){
     size = ftell(pFile);
     rewind(pFile);
 
-    buffer = (uint8_t*) malloc(sizeof(uint8_t)*size);
+    buffer = (char*) malloc(sizeof(char)*size);
     if (buffer == NULL)
         error("Load ROM memory allocation error.");
     
@@ -309,7 +332,7 @@ void op_8xy4_ADD(){
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
 
     uint16_t val = v[Vx] += v[Vx];
-    v[15] = (val > 255);
+    v[15] = (val > 255u);
 
     v[Vx] = val & 0xFFu;
 
@@ -319,16 +342,15 @@ void op_8xy5_SUB(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
 
-    if (Vx > Vy)
-        v[0xF] = 1;
-    v[Vx] = v[Vx] - v[Vy];
+    v[0xF] = (v[Vx] > v[Vy]);
+    v[Vx] -= v[Vy];
 }
 //If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2.
 void op_8xy6_SHR(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
 
-    v[0xF] = (Vx & 1u);
+    v[0xF] = (v[Vx] & 1u);
 
     v[Vx] /= 2;
 }
@@ -340,13 +362,13 @@ void op_8xy7_SUBN(){
 
     v[VF] = (v[Vy] > v[Vx]);
 
-    v[Vx] = Vy - Vx;
+    v[Vx] = v[Vy] - v[Vx];
 }
 //If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
 void op_8xyE_SHL(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
 
-    v[VF] = (Vx & 1u);
+    v[VF] = ((v[Vx] >> 7) & 1u);
 
     v[Vx] *= 2;
 
@@ -361,20 +383,20 @@ void op_9xy0_SNE(){
 }
 //The value of register I is set to nnn.
 void op_Annn_LD(){
-    uint16_t address = opcode & 0x0FFF;
+    uint16_t address = opcode & 0x0FFFu;
 
     I = address;
 }
 //The program counter is set to nnn plus the value of V0.
 void op_Bnnn_JP(){
-    uint16_t address = opcode & 0x0FFF;
+    uint16_t address = opcode & 0x0FFFu;
 
-    pc += address + v[0];
+    pc = address + v[0];
 }
 //The interpreter generates a random number from 0 to 255, 
 //which is then ANDed with the value kk. The results are stored in Vx.
 void op_Cxkk_RND(){
-    uint8_t Vx = (opcode >> 12) & 0x000Fu;
+    uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t byte = (opcode & 0x00FF);
 
     srand(clock());
@@ -385,6 +407,7 @@ void op_Cxkk_RND(){
 //The interpreter reads n bytes from memory, starting at the address stored in I. 
 //These bytes are then displayed as sprites on screen at coordinates (Vx, Vy).
 void op_Dxyn_DRW(){
+    
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
     uint8_t height = opcode & 0x000Fu;
@@ -393,7 +416,6 @@ void op_Dxyn_DRW(){
     uint8_t yPos = v[Vy] % VIDEO_HEIGHT;
 
     v[VF] = 0;
-    printf("Draw function reached");
     for (int row = 0; row < height; row++){
         uint8_t sprite = memory[I + row];
         for (int col = 0; col < 8; col++){
@@ -408,7 +430,6 @@ void op_Dxyn_DRW(){
         }
     }
     drawFlag = 1;
-    printf("Draw function left");
 }
 //Skip next instruction if key with the value of Vx is pressed.
 void op_Ex9E_SKP(){
@@ -458,7 +479,7 @@ void op_Fx1E(){
 //Set I = location of sprite for digit Vx.
 void op_Fx29(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
-    I = 0x50 + (5* v[Vx]);
+    I = FONTSET_START_ADDRESS + (5* v[Vx]);
 }
 //Store BCD representation of Vx in memory locations I, I+1, and I+2.
 void op_Fx33(){
@@ -474,7 +495,6 @@ void op_Fx33(){
 //Store registers V0 through Vx in memory starting at location I.
 void op_Fx55(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
-    uint16_t address = I;
     for (int i = 0; i <= Vx; i++){
         memory[I+i] = v[i];
     }  
@@ -482,25 +502,23 @@ void op_Fx55(){
 //Read registers V0 through Vx from memory starting at location I.
 void op_Fx65(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
-    uint16_t address = I;
-    uint16_t j = 0;
-    for (uint16_t i = I; j <= Vx; i++,j++)
+    for (uint8_t i = 0; i <= Vx; i++)
     {
-         v[j] = memory[i];
+         v[i] = memory[I + i];
     }
 }
 
 void (*op_Array[16])() = {op_Table0, op_1nnn_JP, op_2nnn_CALL, op_3xkk_SE, op_4xkk_SNE, op_5xy0_SE, op_6xkk_LD, op_7xkk_ADD, op_Table8, op_9xy0_SNE, op_Annn_LD, op_Bnnn_JP,
                           op_Cxkk_RND, op_Dxyn_DRW, op_TableE, op_TableF};
-void (*op0_Array[14])() = {op_00E0_CLS, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
+void (*op0_Array[15])() = {op_00E0_CLS, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
                            op_NULL, op_NULL, op_NULL, op_00EE_RET};
-void (*opE_Array[14])() = {op_NULL, op_ExA1_SKNP, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
+void (*opE_Array[15])() = {op_NULL, op_ExA1_SKNP, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
                            op_NULL, op_NULL, op_Ex9E_SKP};
 void (*opF_Array[66])() = {op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx07_LD, op_NULL, op_NULL, op_Fx0A_LD, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx15_LD, op_NULL, op_NULL, op_Fx18_LD, 
                         op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx29, op_Fx1E, op_NULL, op_NULL, op_Fx33, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, 
                         op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx55, op_NULL, op_NULL, 
                         op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,op_Fx65};
-void (*op8_Array[14])() = {op_8xy0_LD, op_8xy1_OR, op_8xy2_AND, op_8xy3_XOR, op_8xy4_ADD, op_8xy5_SUB, op_8xy6_SHR, op_8xy7_SUBN, op_NULL,
+void (*op8_Array[15])() = {op_8xy0_LD, op_8xy1_OR, op_8xy2_AND, op_8xy3_XOR, op_8xy4_ADD, op_8xy5_SUB, op_8xy6_SHR, op_8xy7_SUBN, op_NULL,
                            op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_8xyE_SHL};
 
 void op_Table0(){
