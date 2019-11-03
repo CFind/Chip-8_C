@@ -14,7 +14,58 @@
 #define VIDEO_HEIGHT 32u
 #define FONTSET_SIZE 80u
 
+void (*op_Array[16])();
+void (*op0_Array[14])();
+void (*opE_Array[14])();
+void (*opF_Array[66])();
+void (*op8_Array[14])();
 
+//Initializes memory and pointers
+void initialize();
+//Loads ROM into memory.
+void loadROM();
+//error
+void error(const char * msg);
+//op codes
+void op_00E0_CLS();
+void op_00EE_RET();
+void op_1nnn_JP();
+void op_2nnn_CALL();
+void op_3xkk_SE();
+void op_4xkk_SNE();
+void op_5xy0_SE();
+void op_6xkk_LD();
+void op_7xkk_ADD();
+void op_8xy0_LD();
+void op_8xy1_OR();
+void op_8xy2_AND();
+void op_8xy3_XOR();
+void op_8xy4_ADD();
+void op_8xy5_SUB();
+void op_8xy6_SHR();
+void op_8xy7_SUBN();
+void op_8xyE_SHL();
+void op_9xy0_SNE();
+void op_Annn_LD();
+void op_Bnnn_JP();
+void op_Cxkk_RND();
+void op_Dxyn_DRW();
+void op_Ex9E_SKP();
+void op_ExA1_SKNP();
+void op_Fx07_LD();
+void op_Fx0A_LD();
+void op_Fx15_LD();
+void op_Fx18_LD();
+void op_Fx1E();
+void op_Fx29();
+void op_Fx33();
+void op_Fx55();
+void op_Fx65();
+void op_Table0();
+void op_Table8();
+void op_TableE();
+void op_TableF();
+void op_NULL();
 
 uint8_t fontset[FONTSET_SIZE] =
 {
@@ -69,21 +120,14 @@ uint8_t keys[16];
 bool drawFlag;
 
 
-
-
-
-
-
-
 int main(int argc, char *argv[]){
 
-    initializeGraphics();
     //Pointer to the rom
     if (argc <= 1)
         error("Need ROM filepath as string");
+    initializeGraphics();
     initialize();
     loadROM(argv[1]);
-
 
     while (!quit_emulator) {
         getEvent(&quit_emulator);
@@ -103,66 +147,8 @@ int main(int argc, char *argv[]){
 void emulateCycle(){
     //fetch opcode
     opcode = memory[pc] << 8u | memory[pc+1];
-
-
-    /*
-    switch (opcode & 0xF000u)
-    {
-    case 0x0000:
-        switch (opcode & 0x000Fu)
-        {
-        case 0x0000:
-            op_00E0_CLS();
-            break;
-        
-        case 0x000E:
-            op_00EE_RET();
-            break;
-        default:
-            error("Invalid opcode!");
-        }
-        break;
-    case 0x1000:
-        op_1nnn_JP();
-        break;
-    case 0x2000:
-        op_2nnn_CALL();
-        break;
-    case 0x3000:
-        op_3xkk_SE();
-        break;
-    case 0x4000:
-        op_4xkk_SNE();
-        break;
-    case 0x5000:
-        op_5xy0_SE();
-        break;
-    case 0x6000:
-        op_6xkk_LD();
-        break;
-    case 0x7000:
-        op_7xkk_ADD();
-        break;
-    case 0x8000:
-        switch (opcode & 0x000Fu)
-        {
-        case 0x0000:
-            op_8xy0_LD();
-            break;
-        case 0x0001:
-            op_8xy1_OR();
-        case 0x0002:
-            op_8xy2_AND();
-            break;
-        default:
-            error("Invalid opcode!");
-        }
-
-    
-
-    }*/
+    op_Array[(opcode >> 12) & 0x000F]();
 }
-
 
 void setQuitFlag(){
     quit_emulator = 1;
@@ -170,21 +156,16 @@ void setQuitFlag(){
 
 void initialize(){
     for (unsigned int i = 0; i < FONTSET_SIZE; ++i)
-	{
 		memory[80 + i] = fontset[i];
-	}
     pc = 0x200;
     opcode = 0;
     I = 0;
     stack_pointer = 0;
 }
 
-
-
 void quit(){
     killGraphics();
 }
-
 
 void loadROM(const char * file){
     FILE * pFile = fopen(file,"rb");
@@ -233,13 +214,11 @@ void op_00EE_RET(){
     stack_pointer--;
     pc = stack[stack_pointer];
 }
-
 //The interpreter sets the program counter to nnn
 void op_1nnn_JP(){
     uint16_t address = opcode & 0x0FFFu;
     pc = address;
 }
-
 //The interpreter increments the stack pointer, 
 //then puts the current PC on the top of the stack. The PC is then set to nnn.
 void op_2nnn_CALL(){
@@ -256,7 +235,6 @@ void op_3xkk_SE(){
     if (v[Vx] == byte)
         pc += 2;
 }
-
 //The interpreter compares register Vx to kk, 
 //and if they are not equal, increments the program counter by 2.
 void op_4xkk_SNE(){
@@ -265,7 +243,6 @@ void op_4xkk_SNE(){
     if (v[Vx] != byte)
         pc += 2;
 }
-
 //The interpreter compares register Vx to register Vy, 
 //and if they are equal, increments the program counter by 2.
 void op_5xy0_SE(){
@@ -421,7 +398,6 @@ void op_Dxyn_DRW(){
         }
     }
     drawFlag = 1;
-
 }
 //Skip next instruction if key with the value of Vx is pressed.
 void op_Ex9E_SKP(){
@@ -503,30 +479,36 @@ void op_Fx65(){
     }
 }
 
+void (*op_Array[16])() = {op_Table0, op_1nnn_JP, op_2nnn_CALL, op_3xkk_SE, op_4xkk_SNE, op_5xy0_SE, op_6xkk_LD, op_7xkk_ADD, op_Table8, op_9xy0_SNE, op_Annn_LD, op_Bnnn_JP,
+                          op_Cxkk_RND, op_Dxyn_DRW, op_TableE, op_TableF};
+void (*op0_Array[14])() = {op_00E0_CLS, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
+                           op_NULL, op_NULL, op_NULL, op_00EE_RET};
+void (*opE_Array[14])() = {op_NULL, op_ExA1_SKNP, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
+                           op_NULL, op_NULL, op_Ex9E_SKP};
+void (*opF_Array[66])() = {op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx07_LD, op_NULL, op_NULL, op_Fx0A_LD, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx15_LD, op_NULL, op_NULL, op_Fx18_LD, 
+                        op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx29, op_Fx1E, op_NULL, op_NULL, op_Fx33, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, 
+                        op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx55, op_NULL, op_NULL, 
+                        op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,op_Fx65};
+void (*op8_Array[14])() = {op_8xy0_LD, op_8xy1_OR, op_8xy2_AND, op_8xy3_XOR, op_8xy4_ADD, op_8xy5_SUB, op_8xy6_SHR, op_8xy7_SUBN, op_NULL,
+                           op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_8xyE_SHL};
+
 void op_Table0(){
-
+    op0_Array[opcode & 0x000F]();
 }
-
-void op_TableE(){
-
-}
-
-void op_TableF(){
-
-}
-
-void op_NULL(){
-
-}
-
-void op_8(){
+void op_Table8(){
     uint8_t opLSD = opcode & 0x000Fu;
-    if (opLSD > 7)
-        (opArrayArithmetic[0x000E]);
-    else
-        (opArrayArithmetic[opLSD]);
-    
+    op8_Array[opLSD]();
 }
-void (*opArrayArithmetic[8]) = {op_8xy0_LD, op_8xy1_OR, op_8xy2_AND, op_8xy3_XOR, op_8xy4_ADD, op_8xy5_SUB, op_8xy6_SHR, op_8xy7_SUBN, op_8xyE_SHL};
-void (*opArray[]) = {op_0,op_1nnn_JP,op_2nnn_CALL,op_3xkk_SE,op_4xkk_SNE,op_5xy0_SE,op_6xkk_LD,op_7xkk_ADD,op_arithmetic,op_9xy0_SNE,op_Annn_LD,op_Bnnn_JP,
-                    op_Cxkk_RND,op_Dxyn_DRW,op_E,op}
+void op_TableE(){
+    opE_Array[opcode & 0x000F]();
+}
+void op_TableF(){
+    opF_Array[opcode & 0x000F]();
+}
+void op_NULL(){
+    error(strcat("Null opcode! OP#: ", atoi(opcode)));
+}
+
+
+
+
