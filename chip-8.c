@@ -8,7 +8,6 @@
 
 
 #define PROGRAM_LOC 512u
-//Register VF
 #define VF 0xF
 #define VIDEO_WIDTH 64u
 #define VIDEO_HEIGHT 32u
@@ -117,6 +116,7 @@ uint16_t stack[16];
 uint16_t stack_pointer;
 //Keypad states. 16 keys 0x0 - 0xF values.
 uint8_t keys[16];
+
 bool drawFlag;
 
 
@@ -148,9 +148,16 @@ int main(int argc, char *argv[]){
 void emulateCycle(){
     //fetch opcode
     opcode = memory[pc] << 8u | memory[pc+1];
-    pc+= 2;
+    float start_time = clock();
+    while (((clock() - start_time)/CLOCKS_PER_SEC)*1000 <= 16);
+    if (delay_timer > 0)
+        delay_timer--;
+    if (sound_timer > 0)
+        sound_timer--;
+    
+    pc += 2;
     op_Array[(opcode >> 12) & 0x000F]();
-    printf("Current Op: %d\n", opcode);
+    printf("Current Op: %X\n", opcode);
 }
 
 void setQuitFlag(){
@@ -386,7 +393,7 @@ void op_Dxyn_DRW(){
     uint8_t yPos = v[Vy] % VIDEO_HEIGHT;
 
     v[VF] = 0;
-
+    printf("Draw function reached");
     for (int row = 0; row < height; row++){
         uint8_t sprite = memory[I + row];
         for (int col = 0; col < 8; col++){
@@ -401,6 +408,7 @@ void op_Dxyn_DRW(){
         }
     }
     drawFlag = 1;
+    printf("Draw function left");
 }
 //Skip next instruction if key with the value of Vx is pressed.
 void op_Ex9E_SKP(){

@@ -4,6 +4,7 @@
         "chip-8.h": "c",
         "graphics.h": "c",
         "sdl_interface.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "time.h": "c"
     }
 }

@@ -18,16 +18,27 @@ void initializeGraphics(){
     window = SDL_CreateWindow("Chip-8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (window == NULL)
         error(SDL_GetError());
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    screen_surface = SDL_GetWindowSurface(window);
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 800, 600);
+    if (!(renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED)))
+        error(SDL_GetError());
+    if (!(screen_surface = SDL_GetWindowSurface(window)))
+        error(SDL_GetError());
+    if (!(texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 800, 600)))
+        error(SDL_GetError());
 }
 
 void draw(void const* buffer){
-    SDL_UpdateTexture(texture, NULL, buffer, 2048);
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    printf("Drawing");
+    if (SDL_UpdateTexture(texture, NULL, buffer, 2048))
+        error(SDL_GetError);
+    printf("Texture Update Done");
+    if (SDL_RenderClear(renderer))
+        error(SDL_GetError);
+    printf("Render clear done");
+    if (SDL_RenderCopy(renderer, texture, NULL, NULL))
+        error(SDL_GetError);
+    printf("render copy Done");
     SDL_RenderPresent(renderer);
+    printf("Done drawing");
 }
 
 void updateInput(unsigned char* array){
@@ -54,7 +65,7 @@ void updateInput(unsigned char* array){
 
 }
 
-void getEvent(int* p){
+void getEvent(bool* p){
     SDL_Event current_event;
     if (SDL_PollEvent(&current_event)){
         switch (current_event.type){
