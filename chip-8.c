@@ -135,6 +135,7 @@ int main(int argc, char *argv[]){
         emulateCycle();
         if(drawFlag){
             draw(graphics);
+            printf("Drawing");
             drawFlag = false;
         }
     }
@@ -147,7 +148,9 @@ int main(int argc, char *argv[]){
 void emulateCycle(){
     //fetch opcode
     opcode = memory[pc] << 8u | memory[pc+1];
+    pc+= 2;
     op_Array[(opcode >> 12) & 0x000F]();
+    printf("Current Op: %d\n", opcode);
 }
 
 void setQuitFlag(){
@@ -167,8 +170,8 @@ void quit(){
     killGraphics();
 }
 
-void loadROM(const char * file){
-    FILE * pFile = fopen(file,"rb");
+void loadROM(const char * filePath){
+    FILE * pFile = fopen(filePath,"rb");
     uint8_t * buffer;
     long size;
     long result;

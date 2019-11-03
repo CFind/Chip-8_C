@@ -14,7 +14,7 @@ SDL_Renderer* renderer = NULL;
 void initializeGraphics(){
     if (SDL_Init(SDL_INIT_VIDEO) == -1)
         error(SDL_GetError());
-
+    
     window = SDL_CreateWindow("Chip-8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (window == NULL)
         error(SDL_GetError());
