@@ -17,7 +17,7 @@
 void (*op_Array[16])();
 void (*op0_Array[15])();
 void (*opE_Array[15])();
-void (*opF_Array[66])();
+void (*opF_Array[0x66])();
 void (*op8_Array[15])();
 
 //Initializes memory and pointers
@@ -118,7 +118,7 @@ uint16_t stack_pointer;
 //Keypad states. 16 keys 0x0 - 0xF values.
 uint8_t keys[16];
 
-float delay = 0;
+float delay = 2;
 bool drawFlag;
 
 float timers_interval = 0;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]){
     //Pointer to the rom
     if (argc <= 1)
         error("Need ROM filepath as string");
-    else if (argc >= 2)
+    else if (argc >= 3)
         delay = atof(argv[2]);
     initializeGraphics();
     initialize();
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]){
             emulateCycle();
             if(drawFlag){
                 draw(graphics,  VIDEO_WIDTH);
-                printf("Drawing");
+                //printf("Drawing");
                 drawFlag = false;
             }
         }
@@ -167,8 +167,13 @@ void emulateCycle(){
     opcode = memory[pc] << 8u | memory[pc+1];
     
     pc += 2;
-    op_Array[(opcode >> 12) & 0x000F]();
     printf("Current Op: %X\n", opcode);
+    op_Array[(opcode >> 12) & 0x000F]();
+    
+}
+
+void setDrawFlag(){
+    drawFlag = true;
 }
 
 void timer_update(){
@@ -190,6 +195,18 @@ void setQuitFlag(){
 void initialize(){
     for (unsigned int i = 0; i < FONTSET_SIZE; ++i)
 		memory[80 + i] = fontset[i];
+    for (int i = 0; i <= 0x65; i++){
+        opF_Array[i] = op_NULL;
+    }
+    opF_Array[0x07] = op_Fx07_LD;
+    opF_Array[0x0A] = op_Fx0A_LD;
+    opF_Array[0x15] = op_Fx15_LD;
+    opF_Array[0x18] = op_Fx18_LD;
+    opF_Array[0x1E] = op_Fx1E;
+    opF_Array[0x29] = op_Fx29;
+    opF_Array[0x33] = op_Fx33;
+    opF_Array[0x55] = op_Fx55;
+    opF_Array[0x65] = op_Fx65;
     pc = 0x200;
     opcode = 0;
     I = 0;
@@ -288,7 +305,7 @@ void op_5xy0_SE(){
 void op_6xkk_LD(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t byte = opcode & 0x00FF;
-
+    
     v[Vx] = byte;
 }
 //Adds the value kk to the value of register Vx, then stores the result in Vx. 
@@ -407,29 +424,40 @@ void op_Cxkk_RND(){
 //The interpreter reads n bytes from memory, starting at the address stored in I. 
 //These bytes are then displayed as sprites on screen at coordinates (Vx, Vy).
 void op_Dxyn_DRW(){
-    
-    uint8_t Vx = (opcode >> 8) & 0x000Fu;
-    uint8_t Vy = (opcode >> 4) & 0x000Fu;
-    uint8_t height = opcode & 0x000Fu;
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+	uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+	uint8_t height = opcode & 0x000Fu;
 
-    uint8_t xPos = v[Vx] % VIDEO_WIDTH;
-    uint8_t yPos = v[Vy] % VIDEO_HEIGHT;
+	// Wrap if going beyond screen boundaries
+	uint8_t xPos = v[Vx];// % VIDEO_WIDTH;
+	uint8_t yPos = v[Vy];// % VIDEO_HEIGHT;
 
-    v[VF] = 0;
-    for (int row = 0; row < height; row++){
-        uint8_t sprite = memory[I + row];
-        for (int col = 0; col < 8; col++){
-            uint8_t spritePix = sprite & (0x80u >> col);
-            uint32_t* screenPix = &graphics[(yPos + row) * VIDEO_WIDTH + (xPos + col)];
-            if (spritePix){
-                if (*screenPix == 0xFFFFFFFFF){
-                    v[VF] = 1;
-                }
-            }
-            *screenPix ^= 0xFFFFFFFFF;
-        }
-    }
-    drawFlag = 1;
+	v[0xF] = 0;
+
+	for (unsigned int row = 0; row < height; ++row)
+	{
+		uint8_t spriteByte = memory[I + row];
+
+		for (unsigned int col = 0; col < 8; ++col)
+		{
+			uint8_t spritePixel = spriteByte & (0x80u >> col);
+			uint32_t* screenPixel = &graphics[(yPos + row) * VIDEO_WIDTH + (xPos + col)];
+
+			// Sprite pixel is on
+			if (spritePixel)
+			{
+				// Screen pixel also on - collision
+				if (*screenPixel == 0xFFFFFFFF)
+				{
+					v[0xF] = 1;
+				}
+
+				// Effectively XOR with the sprite pixel
+				*screenPixel ^= 0xFFFFFFFF;
+			}
+		}
+	}
+    drawFlag = true;
 }
 //Skip next instruction if key with the value of Vx is pressed.
 void op_Ex9E_SKP(){
@@ -483,7 +511,7 @@ void op_Fx29(){
 }
 //Store BCD representation of Vx in memory locations I, I+1, and I+2.
 void op_Fx33(){
-    uint8_t Vx = (opcode >> 12) & 0x000Fu;
+    uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t val = v[Vx];
 
     memory[I+2] = val % 10;
@@ -514,28 +542,24 @@ void (*op0_Array[15])() = {op_00E0_CLS, op_NULL, op_NULL, op_NULL, op_NULL, op_N
                            op_NULL, op_NULL, op_NULL, op_00EE_RET};
 void (*opE_Array[15])() = {op_NULL, op_ExA1_SKNP, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,
                            op_NULL, op_NULL, op_Ex9E_SKP};
-void (*opF_Array[66])() = {op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx07_LD, op_NULL, op_NULL, op_Fx0A_LD, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx15_LD, op_NULL, op_NULL, op_Fx18_LD, 
-                        op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx29, op_Fx1E, op_NULL, op_NULL, op_Fx33, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, 
-                        op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_Fx55, op_NULL, op_NULL, 
-                        op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_NULL,op_Fx65};
 void (*op8_Array[15])() = {op_8xy0_LD, op_8xy1_OR, op_8xy2_AND, op_8xy3_XOR, op_8xy4_ADD, op_8xy5_SUB, op_8xy6_SHR, op_8xy7_SUBN, op_NULL,
                            op_NULL, op_NULL, op_NULL, op_NULL, op_NULL, op_8xyE_SHL};
 
 void op_Table0(){
-    op0_Array[opcode & 0x000F]();
+    op0_Array[opcode & 0x000Fu]();
 }
 void op_Table8(){
     uint8_t opLSD = opcode & 0x000Fu;
     op8_Array[opLSD]();
 }
 void op_TableE(){
-    opE_Array[opcode & 0x000F]();
+    opE_Array[opcode & 0x000Fu]();
 }
 void op_TableF(){
-    opF_Array[opcode & 0x000F]();
+    opF_Array[opcode & 0x00FFu]();
 }
 void op_NULL(){
-    error(strcat("Null opcode! OP#: ", atoi(opcode)));
+    error("Null Opcode!");
 }
 
 
