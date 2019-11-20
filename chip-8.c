@@ -348,7 +348,7 @@ void op_8xy4_ADD(){
     uint8_t Vx = (opcode >> 8) & 0x000Fu;
     uint8_t Vy = (opcode >> 4) & 0x000Fu;
 
-    uint16_t val = v[Vx] += v[Vx];
+    uint16_t val = v[Vx] + v[Vy];
     v[15] = (val > 255u);
 
     v[Vx] = val & 0xFFu;
