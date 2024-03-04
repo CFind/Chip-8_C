@@ -2,18 +2,13 @@
     "configurations": [
         {
             "name": "Win32",
-            "includePath": [
-                "${workspaceFolder}/**","C:/Development/SDL2_MinGW_32Bit/**"
-            ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
-            ],
-            "compilerPath": "C:\\MinGW\\bin\\gcc.exe",
+            "includePath": ["${workspaceFolder}/**"],
+            "defines": ["_DEBUG", "UNICODE", "_UNICODE"],
+            "windowsSdkVersion": "10.0.18362.0",
+            "compilerPath": "${default}",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "clang-x64"
+            "intelliSenseMode": "${default}"
         }
     ],
     "version": 4
